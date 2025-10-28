@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10 Yen Game</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        .container {
+            max-width: 500px;
+            margin: auto;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>10 Yen Game</h1>
+
+        <!-- Host View -->
+        <div id="host-view">
+            <h2>Host a New Game</h2>
+            <input type="text" id="question" placeholder="Enter your question">
+            <button onclick="hostGame()">Host</button>
+        </div>
+
+        <!-- Player View -->
+        <div id="player-view" class="hidden">
+            <h2 id="game-question"></h2>
+            <button onclick="vote('yes')">Yes (Heads)</button>
+            <button onclick="vote('no')">No (Tails)</button>
+            <div id="results">
+                <h3>Results</h3>
+                <p>Yes: <span id="yes-votes">0</span></p>
+                <p>No: <span id="no-votes">0</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script>
+        // --- FIREBASE CONFIGURATION ---
+        // Replace with your Firebase project's configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // --- GAME LOGIC ---
+        const hostView = document.getElementById('host-view');
+        const playerView = document.getElementById('player-view');
+        const gameQuestion = document.getElementById('game-question');
+        const yesVotes = document.getElementById('yes-votes');
+        const noVotes = document.getElementById('no-votes');
+
+        function generateGameId() {
+            return Math.random().toString(36).substr(2, 9);
+        }
+
+        function hostGame() {
+            const question = document.getElementById('question').value;
+            if (!question) {
+                alert('Please enter a question.');
+                return;
+            }
+            const gameId = generateGameId();
+            database.ref('games/' + gameId).set({
+                question: question,
+                votes: {
+                    yes: 0,
+                    no: 0
+                }
+            }).then(() => {
+                window.location.hash = gameId;
+                showPlayerView(gameId, question);
+                prompt("Share this link with your friends:", window.location.href);
+            });
+        }
+
+        function vote(option) {
+            const gameId = window.location.hash.substring(1);
+            const voteRef = database.ref('games/' + gameId + '/votes/' + option);
+            voteRef.transaction(function(current_value) {
+                return (current_value || 0) + 1;
+            });
+        }
+
+        function showPlayerView(gameId, question) {
+            hostView.classList.add('hidden');
+            playerView.classList.remove('hidden');
+            gameQuestion.innerText = question;
+
+            const votesRef = database.ref('games/' + gameId + '/votes');
+            votesRef.on('value', (snapshot) => {
+                const votes = snapshot.val();
+                if (votes) {
+                    yesVotes.innerText = votes.yes || 0;
+                    noVotes.innerText = votes.no || 0;
+                }
+            });
+        }
+
+        window.onload = () => {
+            if (window.location.hash) {
+                const gameId = window.location.hash.substring(1);
+                const gameRef = database.ref('games/' + gameId);
+                gameRef.once('value', (snapshot) => {
+                    const gameData = snapshot.val();
+                    if (gameData) {
+                        showPlayerView(gameId, gameData.question);
+                    }
+                });
+            }
+        };
+    </script>
+</body>
+</html>
