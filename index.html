@@ -26,54 +26,48 @@
             padding: 30px 40px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
         }
         h1 { color: #1c1e21; margin-bottom: 10px; }
         h2 { color: #555; margin-bottom: 25px; font-weight: 400; }
         h3 { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 30px; margin-bottom: 20px; color: #333; }
         input[type="text"] {
-            width: calc(100% - 24px);
-            padding: 12px;
-            margin-bottom: 15px;
-            border: 1px solid #dddfe2;
-            border-radius: 8px;
-            font-size: 16px;
-            font-family: 'Poppins', sans-serif;
+            width: calc(100% - 24px); padding: 12px; margin-bottom: 15px; border: 1px solid #dddfe2;
+            border-radius: 8px; font-size: 16px; font-family: 'Poppins', sans-serif;
         }
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #1877f2;
-            box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.2);
-        }
+        input[type="text"]:focus { outline: none; border-color: #1877f2; box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.2); }
         button {
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            margin: 5px;
-            transition: background-color 0.2s ease, transform 0.1s ease;
+            border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px;
+            font-weight: 600; cursor: pointer; margin: 5px; transition: all 0.2s ease;
         }
         button:hover { opacity: 0.9; }
         button:active { transform: scale(0.98); }
-        button:disabled { background-color: #ccd0d5; cursor: not-allowed; opacity: 0.7; }
+        button:disabled { background-color: #ccd0d5 !important; cursor: not-allowed; opacity: 0.7; }
 
         .primary-button { background-color: #1877f2; color: white; }
         #yes-button { background-color: #42b72a; color: white; }
         #no-button { background-color: #f02849; color: white; }
-        /* NEW: Style for the end game button */
         #end-game-button { background-color: #8a8d91; color: white; }
+        /* NEW: Style for the reveal votes button */
+        #reveal-button { background-color: #ffc107; color: black; }
 
         #game-question { font-size: 1.5em; font-weight: 600; margin-bottom: 30px; color: #1c1e21; }
         #results { margin-top: 30px; display: flex; justify-content: space-around; gap: 20px; }
         .result-box { background-color: #f0f2f5; padding: 20px; border-radius: 8px; flex-grow: 1; }
         .result-box .label { font-size: 1em; color: #606770; }
         .result-box .count { font-size: 2.5em; font-weight: 600; color: #1c1e21; }
-        #share-area { margin-top: 20px; }
+
+        /* NEW: Hide vote counts and show a '?' when votes are not revealed */
+        .votes-hidden .count {
+            font-size: 0; /* Hide the number */
+        }
+        .votes-hidden .count::before {
+            content: '?';
+            font-size: 2.5rem; /* Use rem to match original font-size */
+        }
+
+        #share-area { margin-top: 20px; overflow: hidden; }
         #share-link { width: calc(100% - 100px); padding: 10px; border: 1px solid #ddd; border-radius: 8px 0 0 8px; background: #f5f6f7; color: #606770; font-size: 14px; float: left; }
         #copy-button { width: 80px; padding: 10px; border-radius: 0 8px 8px 0; margin: 0; float: left; font-size: 14px; }
-
         .hidden { display: none; }
     </style>
 </head>
@@ -81,21 +75,19 @@
     <div class="container">
         <h1>10 Yen Game</h1>
 
-        <!-- Host View (Initial) -->
         <div id="host-view">
             <h2>Host a New Game</h2>
             <input type="text" id="question" placeholder="Enter your first question">
             <button class="primary-button" onclick="hostGame()">Host Game</button>
         </div>
 
-        <!-- Player/Game View -->
         <div id="player-view" class="hidden">
             <h2 id="game-question">Loading question...</h2>
             <div id="vote-buttons">
                 <button id="yes-button" onclick="vote('yes')">Yes (Heads)</button>
                 <button id="no-button" onclick="vote('no')">No (Tails)</button>
             </div>
-            <div id="results">
+            <div id="results" class="votes-hidden">
                 <div class="result-box"><div class="label">Yes</div><div class="count" id="yes-votes">0</div></div>
                 <div class="result-box"><div class="label">No</div><div class="count" id="no-votes">0</div></div>
             </div>
@@ -103,7 +95,8 @@
                  <h3>Host Controls</h3>
                  <input type="text" id="new-question" placeholder="Enter the next question">
                  <button class="primary-button" onclick="askNewQuestion()">Ask New Question</button>
-                 <!-- NEW: The button to end the game -->
+                 <!-- NEW: The button to reveal votes -->
+                 <button id="reveal-button" onclick="revealVotes()">Reveal Votes</button>
                  <button id="end-game-button" onclick="endGame()">End Game</button>
             </div>
             <div id="share-area" class="hidden">
@@ -113,7 +106,6 @@
             </div>
         </div>
         
-        <!-- NEW: A view to show when the game is over -->
         <div id="game-over-view" class="hidden">
             <h2>Game Over</h2>
             <p>The host has ended the game. Thanks for playing!</p>
@@ -121,7 +113,6 @@
         </div>
     </div>
 
-    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -141,116 +132,106 @@
         const database = firebase.database();
 
         // --- DOM Elements ---
-        const hostView = document.getElementById('host-view');
-        const playerView = document.getElementById('player-view');
-        const gameOverView = document.getElementById('game-over-view'); // NEW
-        const gameQuestion = document.getElementById('game-question');
-        // ... (rest of the element variables are the same)
-        const yesVotes = document.getElementById('yes-votes');
-        const noVotes = document.getElementById('no-votes');
-        const yesButton = document.getElementById('yes-button');
-        const noButton = document.getElementById('no-button');
-        const hostControls = document.getElementById('host-controls');
-        const shareArea = document.getElementById('share-area');
-        const shareLinkInput = document.getElementById('share-link');
+        const hostView = document.getElementById('host-view'), playerView = document.getElementById('player-view'),
+        gameOverView = document.getElementById('game-over-view'), gameQuestion = document.getElementById('game-question'),
+        yesVotes = document.getElementById('yes-votes'), noVotes = document.getElementById('no-votes'),
+        yesButton = document.getElementById('yes-button'), noButton = document.getElementById('no-button'),
+        hostControls = document.getElementById('host-controls'), shareArea = document.getElementById('share-area'),
+        shareLinkInput = document.getElementById('share-link'), resultsContainer = document.getElementById('results'),
+        voteButtonsContainer = document.getElementById('vote-buttons'), revealButton = document.getElementById('reveal-button');
 
         let isHost = false;
 
         function hostGame() {
-            // ... (this function is unchanged)
             const question = document.getElementById('question').value;
             if (!question) { alert('Please enter a question.'); return; }
             const gameId = Math.random().toString(36).substr(2, 9);
+            // NEW: Initialize with isRevealed: false
             database.ref('games/' + gameId).set({
                 currentQuestion: { text: question, id: new Date().getTime() },
-                votes: { yes: 0, no: 0 }
+                votes: { yes: 0, no: 0 },
+                isRevealed: false
             }).then(() => {
-                isHost = true;
-                window.location.hash = gameId;
-                showPlayerView(gameId);
+                isHost = true; window.location.hash = gameId; showPlayerView(gameId);
             });
         }
-        
-        // NEW: Function to end and delete the game
-        function endGame() {
-            if (confirm("Are you sure you want to end the game for everyone? This cannot be undone.")) {
-                const gameId = window.location.hash.substring(1);
-                database.ref('games/' + gameId).remove()
-                    .catch(error => alert("Could not end the game. Error: " + error));
-            }
+
+        function askNewQuestion() {
+            const newQuestionText = document.getElementById('new-question').value;
+            if (!newQuestionText) { alert('Please enter a new question.'); return; }
+            const gameId = window.location.hash.substring(1);
+            // NEW: Reset isRevealed to false for the new round
+            database.ref('games/' + gameId).update({
+                currentQuestion: { text: newQuestionText, id: new Date().getTime() },
+                votes: { yes: 0, no: 0 },
+                isRevealed: false
+            });
+            document.getElementById('new-question').value = '';
+        }
+
+        // NEW: Function for the host to reveal the votes to everyone
+        function revealVotes() {
+            const gameId = window.location.hash.substring(1);
+            database.ref('games/' + gameId).update({ isRevealed: true });
         }
         
-        function showPlayerView(gameId) {
-            hostView.classList.add('hidden');
-            gameOverView.classList.add('hidden'); // NEW
-            playerView.classList.remove('hidden');
-
-            if (isHost) {
-                hostControls.classList.remove('hidden');
-                shareArea.classList.remove('hidden');
-                shareLinkInput.value = window.location.href;
+        // NEW: Function to randomly swap the Yes/No buttons
+        function randomizeVoteButtons() {
+            if (Math.random() > 0.5) {
+                voteButtonsContainer.appendChild(yesButton);
+                voteButtonsContainer.appendChild(noButton);
+            } else {
+                voteButtonsContainer.appendChild(noButton);
+                voteButtonsContainer.appendChild(yesButton);
             }
+        }
+
+        function showPlayerView(gameId) {
+            hostView.classList.add('hidden'); gameOverView.classList.add('hidden'); playerView.classList.remove('hidden');
+            if (isHost) { hostControls.classList.remove('hidden'); shareArea.classList.remove('hidden'); shareLinkInput.value = window.location.href; }
 
             const gameRef = database.ref('games/' + gameId);
             gameRef.on('value', (snapshot) => {
                 const gameData = snapshot.val();
-                // NEW: If gameData is null, it means the host deleted it. End the game.
-                if (!gameData) {
-                    showGameOverView();
-                    return; // Stop processing further
-                }
+                if (!gameData) { showGameOverView(); return; }
 
                 const currentQuestion = gameData.currentQuestion;
                 const votes = gameData.votes || { yes: 0, no: 0 };
                 
                 if (gameQuestion.getAttribute('data-question-id') !== currentQuestion.id) {
-                     enableVotingButtons();
+                    enableVotingButtons();
+                    randomizeVoteButtons(); // NEW: Randomize buttons on new question
                 }
-
+                
                 gameQuestion.innerText = currentQuestion.text;
                 gameQuestion.setAttribute('data-question-id', currentQuestion.id);
                 yesVotes.innerText = votes.yes || 0;
                 noVotes.innerText = votes.no || 0;
+                
+                // NEW: Control UI based on isRevealed state
+                resultsContainer.classList.toggle('votes-hidden', !gameData.isRevealed);
+                if (isHost) { revealButton.disabled = gameData.isRevealed; }
             });
         }
 
-        // NEW: Function to show the game over screen
-        function showGameOverView() {
-            playerView.classList.add('hidden');
-            hostView.classList.add('hidden');
-            gameOverView.classList.remove('hidden');
-        }
-
-        window.onload = () => {
-            if (window.location.hash) {
-                const gameId = window.location.hash.substring(1);
-                showPlayerView(gameId);
+        function endGame() {
+            if (confirm("Are you sure you want to end the game?")) {
+                database.ref('games/' + window.location.hash.substring(1)).remove();
             }
-        };
-
-        // --- (All other functions like vote, askNewQuestion, copyLink, etc., remain unchanged) ---
+        }
         function vote(option) {
             const gameId = window.location.hash.substring(1);
             database.ref('games/' + gameId + '/votes/' + option).transaction((c) => (c || 0) + 1);
             yesButton.disabled = true; noButton.disabled = true;
         }
-        function askNewQuestion() {
-            const newQuestionText = document.getElementById('new-question').value;
-            if (!newQuestionText) { alert('Please enter a new question.'); return; }
-            const gameId = window.location.hash.substring(1);
-            database.ref('games/' + gameId).update({
-                currentQuestion: { text: newQuestionText, id: new Date().getTime() },
-                votes: { yes: 0, no: 0 }
-            });
-            document.getElementById('new-question').value = '';
-        }
+        function showGameOverView() { playerView.classList.add('hidden'); hostView.classList.add('hidden'); gameOverView.classList.remove('hidden'); }
         function enableVotingButtons() { yesButton.disabled = false; noButton.disabled = false; }
         function copyLink() {
-            shareLinkInput.select();
-            document.execCommand('copy');
+            shareLinkInput.select(); document.execCommand('copy');
             document.getElementById('copy-button').innerText = "Copied!";
             setTimeout(() => { document.getElementById('copy-button').innerText = "Copy"; }, 2000);
         }
+        window.onload = () => { if (window.location.hash) { showPlayerView(window.location.hash.substring(1)); } };
     </script>
 </body>
 </html>
